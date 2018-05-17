@@ -48,7 +48,7 @@ services:
       - ./conf/telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
       - logs:/var/log
     ports:
-      - 8125:8125
+      - 8125:8125/udp
     networks:
       - dev
     restart: on-failure
