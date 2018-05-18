@@ -35,7 +35,7 @@ services:
   #     - '--influxdb-url=http://influxdb:8086'
 
   influxdb:
-    image: influxdb:1.4-alpine
+    image: influxdb:1.5-alpine
     volumes:
       - influxdb:/var/lib/influxdb
     networks:
@@ -43,7 +43,7 @@ services:
     restart: on-failure
 
   telegraf:
-    image: telegraf:1.4-alpine
+    image: telegraf:1.6-alpine
     volumes:
       - ./conf/telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
       - logs:/var/log
