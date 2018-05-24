@@ -1,0 +1,61 @@
+dbrp "test"."autogen"
+
+// Get errors stream data
+var errors = stream
+    |from()
+        .measurement('backend_hi_500')
+        .groupBy(*)
+
+// Get client errors stream data
+var clientErrors = stream
+    |from()
+        .measurement('backend_hi_400')
+        .groupBy(*)
+
+// Get client errors stream data
+var success = stream
+    |from()
+        .measurement('backend_hi_200')
+        .groupBy(*)
+
+// Get views stream data
+var total = stream
+    |from()
+        .measurement('backend_hi_total')
+        .groupBy(*)
+
+// Join errors and total
+errors
+    |join(total)
+        .as('errors', 'total')
+    //Calculate percentage
+    |eval(lambda: float("errors.value") / float("total.value"))
+        // Give the resulting field a name
+        .as('value')
+    |influxDBOut()
+        .database('test')
+        .measurement('backend_hi_500_rate')
+
+// Join client errors and total
+clientErrors
+    |join(total)
+        .as('errors', 'total')
+    //Calculate percentage
+    |eval(lambda: float("errors.value") / float("total.value"))
+        // Give the resulting field a name
+        .as('value')
+    |influxDBOut()
+        .database('test')
+        .measurement('backend_hi_400_rate')
+
+// Join success and total
+success
+    |join(total)
+        .as('success', 'total')
+    //Calculate percentage
+    |eval(lambda: float("success.value") / float("total.value"))
+        // Give the resulting field a name
+        .as('value')
+    |influxDBOut()
+        .database('test')
+        .measurement('backend_hi_200_rate')
