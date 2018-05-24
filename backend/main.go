@@ -1,9 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -11,9 +14,12 @@ import (
 )
 
 var (
-	randLock     sync.Mutex
-	zipf         = rand.NewZipf(rand.New(rand.NewSource(0)), 1.1, 1, 1000)
-	statsdClient *statsd.Client
+	randLock       sync.Mutex
+	zipf           = rand.NewZipf(rand.New(rand.NewSource(0)), 1.1, 1, 1000)
+	statsdClient   *statsd.Client
+	slownessFixed  = false
+	minError       = 95
+	minClientError = 85
 )
 
 func init() {
@@ -23,6 +29,25 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+
+	if os.Getenv("SLOWNESS_FIXED") == "true" {
+		slownessFixed = true
+	}
+
+	if val, err := strconv.ParseInt(os.Getenv("MIN_ERROR"), 10, 64); err == nil {
+		minError = int(val)
+	}
+
+	if val, err := strconv.ParseInt(os.Getenv("MIN_CLIENT_ERROR"), 10, 64); err == nil {
+		minClientError = int(val)
+	}
+
+	fmt.Printf(
+		"Starting backend with: slownessFixed %v, mixError %d, minClientError %d \n",
+		slownessFixed,
+		minError,
+		minClientError,
+	)
 }
 
 func handleHi(w http.ResponseWriter, r *http.Request) {
@@ -32,17 +57,25 @@ func handleHi(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	statsdClient.Increment("backend.hi.total")
-	randLock.Lock()
-	time.Sleep(time.Duration(zipf.Uint64()) * time.Millisecond)
-	randLock.Unlock()
+	var queryTime time.Duration
+
+	if slownessFixed {
+		queryTime = 200*time.Millisecond + time.Duration(rand.Intn(100))*time.Millisecond
+	} else {
+		randLock.Lock()
+		queryTime = time.Duration(zipf.Uint64()) * time.Millisecond
+		randLock.Unlock()
+	}
+
+	time.Sleep(queryTime)
 
 	// Fail sometimes.
 	switch v := rand.Intn(100); {
-	case v > 95:
+	case v > minError:
 		statsdClient.Increment("backend.hi.500")
 		w.WriteHeader(500)
 		return
-	case v > 85:
+	case v > minClientError:
 		statsdClient.Increment("backend.hi.400")
 		w.WriteHeader(400)
 		return

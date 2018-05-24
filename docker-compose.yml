@@ -73,6 +73,10 @@ services:
       - ./backend:/go/src/app
     ports:
       - 8081:8080
+    environment:
+      - SLOWNESS_FIXED=false
+      - MIN_ERROR=95
+      - MIN_CLIENT_ERROR=85
     command:
       - go
       - run
